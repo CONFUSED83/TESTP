@@ -272,11 +272,50 @@ window.showToast = function(message, type = 'info') {
 };
 
 // ============ NOTIFICATIONS ============
-// Uses OneSignal + Supabase Edge Function for secure push notifications
 
 const ONESIGNAL_APP_ID = '89f74a12-48fa-470e-be7a-2cd72d31f550';
 
-// Initialize OneSignal
+// Check if notifications are actually enabled (checks both stored state AND browser permission)
+function isNotifEnabled() {
+    if (!('Notification' in window)) return false;
+    return Notification.permission === 'granted' && localStorage.getItem('cth_notif_on') === 'true';
+}
+
+function setNotifEnabled(val) {
+    localStorage.setItem('cth_notif_on', val ? 'true' : 'false');
+}
+
+// Request notification permission directly
+async function requestNotifPermission() {
+    if (!('Notification' in window)) {
+        showToast('Notifications not supported in this browser', 'error');
+        return false;
+    }
+    if (Notification.permission === 'granted') {
+        setNotifEnabled(true);
+        return true;
+    }
+    if (Notification.permission === 'denied') {
+        showToast('Notifications blocked. Check browser site settings.', 'error');
+        return false;
+    }
+    const result = await Notification.requestPermission();
+    if (result === 'granted') {
+        setNotifEnabled(true);
+        return true;
+    }
+    return false;
+}
+
+// Show a local notification
+function showLocalNotification(title, body) {
+    if (!isNotifEnabled()) return;
+    try {
+        new Notification(title, { body, silent: false });
+    } catch (e) {}
+}
+
+// Initialize OneSignal (runs in background, not required for notifications)
 window.OneSignalDeferred = window.OneSignalDeferred || [];
 window.OneSignalDeferred.push(async function(OneSignal) {
     try {
@@ -292,54 +331,27 @@ window.OneSignalDeferred.push(async function(OneSignal) {
     }
 });
 
-function isNotifEnabled() {
-    return localStorage.getItem('cth_notif_on') === 'true';
-}
-function setNotifEnabled(val) {
-    localStorage.setItem('cth_notif_on', val ? 'true' : 'false');
-}
-
-async function promptNotifSubscribe() {
-    try {
-        // Try browser Notification API directly
-        if ('Notification' in window) {
-            if (Notification.permission === 'granted') {
-                setNotifEnabled(true);
-                // Also try OneSignal in background
-                tryOneSignalLogin();
-                return;
-            }
-            if (Notification.permission !== 'denied') {
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    setNotifEnabled(true);
-                    tryOneSignalLogin();
-                }
-            }
-        }
-    } catch (e) {
-        console.warn('Notif subscribe failed:', e);
-    }
-}
-
+// Try to login to OneSignal for push targeting (best effort)
 async function tryOneSignalLogin() {
     try {
         await window.OneSignalDeferred;
         window.OneSignalDeferred.push(function(OneSignal) {
-            const session = getCurrentUser();
-            if (session) {
-                OneSignal.login(session.username);
-                OneSignal.User.addTag('username', session.username);
-            }
+            try {
+                const session = getCurrentUser();
+                if (session) {
+                    OneSignal.login(session.username);
+                    OneSignal.User.addTag('username', session.username);
+                }
+            } catch (e) {}
         });
     } catch (e) {}
 }
 
-// Send push notification via Supabase Edge Function (keeps API key secure)
+// Send push notification via Supabase Edge Function
 async function sendPushNotification(targetUsername, title, message) {
     const client = window.sbClient || (window.supabase ? window.supabase.createClient('https://jbjsfwkmnjzanbzjkbuv.supabase.co', 'dummy') : null);
     if (!client) {
-        console.warn('No Supabase client for push');
+        console.warn('No client for push');
         return;
     }
     try {

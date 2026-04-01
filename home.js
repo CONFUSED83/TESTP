@@ -119,16 +119,14 @@
         
         // Notification toggle
         const notifLabel = document.getElementById('notifToggleLabel');
-        const browserPerm = ('Notification' in window) ? Notification.permission : 'denied';
-        const isEnabled = isNotifEnabled() || browserPerm === 'granted';
-        if (notifLabel) notifLabel.textContent = isEnabled ? 'Disable Notifications' : 'Enable Notifications';
-        document.getElementById('notifToggleBtn').addEventListener('click', async () => {
+        if (notifLabel) notifLabel.textContent = isNotifEnabled() ? 'Disable Notifications' : 'Enable Notifications';
+        document.getElementById('notifToggleBtn').addEventListener('click', () => {
             document.getElementById('profileDropdown').classList.remove('show');
-            if (!isEnabled) {
+            if (!isNotifEnabled()) {
                 showNotificationPopup('cth_notif_popup_toggle');
             } else {
                 setNotifEnabled(false);
-                notifLabel.textContent = 'Enable Notifications';
+                if (notifLabel) notifLabel.textContent = 'Enable Notifications';
                 showToast('Notifications disabled', 'info');
             }
         });
@@ -208,9 +206,7 @@
 
             // Show notification popup (once per user)
             const notifPopupKey = 'cth_notif_popup_' + user.username;
-            const browserPerm = ('Notification' in window) ? Notification.permission : 'denied';
-            const alreadyEnabled = isNotifEnabled() || browserPerm === 'granted';
-            if (!localStorage.getItem(notifPopupKey) && !alreadyEnabled) {
+            if (!localStorage.getItem(notifPopupKey) && !isNotifEnabled()) {
                 setTimeout(() => {
                     showNotificationPopup(notifPopupKey);
                 }, 1500);
@@ -412,17 +408,16 @@
                 btn.disabled = true;
                 localStorage.setItem(popupKey, '1');
                 
-                await promptNotifSubscribe();
+                const granted = await requestNotifPermission();
                 
                 overlay.remove();
                 const label = document.getElementById('notifToggleLabel');
-                const perm = ('Notification' in window) ? Notification.permission : 'denied';
-                const success = isNotifEnabled() || perm === 'granted';
-                if (label) label.textContent = success ? 'Disable Notifications' : 'Enable Notifications';
-                if (success) {
+                if (label) label.textContent = isNotifEnabled() ? 'Disable Notifications' : 'Enable Notifications';
+                if (granted) {
                     showToast('Notifications enabled!', 'success');
+                    tryOneSignalLogin();
                 } else {
-                    showToast('Could not enable. Try again later.', 'info');
+                    showToast('Could not enable notifications.', 'info');
                 }
             });
 
@@ -738,4 +733,20 @@
         };
 
         renderHome();
+
+        // Poll for new messages every 5 seconds
+        setInterval(async () => {
+            try {
+                const unreadCount = await getUnreadCount(user.username);
+                const msgBadge = document.getElementById('msgBadge');
+                if (msgBadge) {
+                    if (unreadCount > 0) {
+                        msgBadge.style.display = 'flex';
+                        msgBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                    } else {
+                        msgBadge.style.display = 'none';
+                    }
+                }
+            } catch {}
+        }, 5000);
     })();
