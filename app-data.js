@@ -450,6 +450,7 @@ async function initApp() {
     
     if (window.supabase && !sb) {
         sb = window.supabase.createClient(SB_URL, SB_KEY);
+        window.sbClient = sb; // Make available globally for other scripts
         console.log('SB: Client initialized');
     }
     

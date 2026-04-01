@@ -272,10 +272,9 @@ window.showToast = function(message, type = 'info') {
 };
 
 // ============ NOTIFICATIONS ============
-// Uses OneSignal ONLY for push notifications (works when browser is closed)
+// Uses OneSignal + Supabase Edge Function for secure push notifications
 
 const ONESIGNAL_APP_ID = '89f74a12-48fa-470e-be7a-2cd72d31f550';
-const ONESIGNAL_REST_KEY = 'os_v2_app_rh3uuesi7jdq5pt2ftls2mpvkaqjmxcz666u3vnsyh3my5w5uozeqpghxzvnkizlkq4wnx6zprar6d33u6aewft3ayob5zpgfzvy4ga';
 
 // Initialize OneSignal
 window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -293,7 +292,6 @@ window.OneSignalDeferred.push(async function(OneSignal) {
     }
 });
 
-// Check if user is subscribed to OneSignal push
 function isNotifEnabled() {
     return localStorage.getItem('cth_notif_on') === 'true';
 }
@@ -301,7 +299,6 @@ function setNotifEnabled(val) {
     localStorage.setItem('cth_notif_on', val ? 'true' : 'false');
 }
 
-// Prompt user to subscribe to OneSignal push
 async function promptNotifSubscribe() {
     try {
         await window.OneSignalDeferred;
@@ -324,25 +321,21 @@ async function promptNotifSubscribe() {
     }
 }
 
-// Send push notification via OneSignal REST API
+// Send push notification via Supabase Edge Function (keeps API key secure)
 async function sendPushNotification(targetUsername, title, message) {
+    const client = window.sbClient || (window.supabase ? window.supabase.createClient('https://jbjsfwkmnjzanbzjkbuv.supabase.co', 'dummy') : null);
+    if (!client) {
+        console.warn('No Supabase client for push');
+        return;
+    }
     try {
-        await fetch('https://onesignal.com/api/v1/notifications', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Basic ' + ONESIGNAL_REST_KEY
-            },
-            body: JSON.stringify({
-                app_id: ONESIGNAL_APP_ID,
-                include_external_user_ids: [targetUsername],
-                headings: { en: title },
-                contents: { en: message }
-            })
+        const { data, error } = await client.functions.invoke('send-notification', {
+            body: { targetUsername, title, message }
         });
-        console.log('Push sent to:', targetUsername);
+        if (error) console.warn('Push failed:', error);
+        else console.log('Push sent to:', targetUsername);
     } catch (e) {
-        console.warn('Push failed:', e);
+        console.warn('Push error:', e);
     }
 }
 
