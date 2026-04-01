@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PUBG Cards - Chat</title>
+    <link rel="stylesheet" href="shared-style.css">
+    <link rel="stylesheet" href="chat-window.css">
+</head>
+<body>
+    <div class="chat-wrapper">
+        <div class="chat-top-bar">
+            <button class="back-btn" id="backBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </button>
+            <div class="chat-avatar" id="chatAvatar"></div>
+            <div style="flex:1;">
+                <div class="chat-user-name" id="chatUserName"></div>
+            </div>
+            <button class="chat-more-btn" id="moreBtn">⋮</button>
+            <div id="moreMenu" style="display:none;position:absolute;top:50px;right:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px;min-width:160px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+                <button id="deleteChatBtn" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:none;background:none;color:var(--red);font-size:0.8125rem;cursor:pointer;border-radius:8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Delete Chat
+                </button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div style="text-align:center;padding:40px;"><div class="spinner spinner-lg"></div></div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Type a message...">
+            <button class="send-btn" id="sendBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app-data.js?v=CLEAN164721"></script>
+    <script src="shared-components.js?v=51"></script>
+    <script src="chat-window.js"></script>
+</body>
+</html>
