@@ -275,120 +275,69 @@ window.showToast = function(message, type = 'info') {
 
 const ONESIGNAL_APP_ID = '89f74a12-48fa-470e-be7a-2cd72d31f550';
 
-// Check if notifications are actually enabled (checks both stored state AND browser permission)
-function isNotifEnabled() {
-    if (!('Notification' in window)) return false;
-    return Notification.permission === 'granted' && localStorage.getItem('cth_notif_on') === 'true';
-}
+// Simple OneSignal initialization (matches official guide)
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+window.OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+        appId: ONESIGNAL_APP_ID
+    });
+    console.log('ONESIGNAL: Ready');
 
+    // Tag user with username when subscribed
+    OneSignal.on('subscriptionChange', function(isSubscribed) {
+        console.log('ONESIGNAL: Subscription:', isSubscribed);
+        if (isSubscribed) {
+            const session = getCurrentUser();
+            if (session) {
+                OneSignal.User.addTag('username', session.username);
+                setNotifEnabled(true);
+            }
+        }
+    });
+});
+
+// Notification state
+function isNotifEnabled() {
+    return localStorage.getItem('cth_notif_on') === 'true';
+}
 function setNotifEnabled(val) {
     localStorage.setItem('cth_notif_on', val ? 'true' : 'false');
 }
 
-// Request notification permission directly
+// Request notification permission
 async function requestNotifPermission() {
     if (!('Notification' in window)) {
-        showToast('Notifications not supported in this browser', 'error');
-        console.log('NOTIF: Browser does not support notifications');
+        showToast('Notifications not supported', 'error');
         return false;
     }
-    
-    console.log('NOTIF: Current permission:', Notification.permission);
-    console.log('NOTIF: Stored state:', localStorage.getItem('cth_notif_on'));
-    
     if (Notification.permission === 'granted') {
         setNotifEnabled(true);
-        console.log('NOTIF: Already granted, enabling');
         return true;
     }
-    
     if (Notification.permission === 'denied') {
-        showToast('Notifications blocked. Check browser site settings.', 'error');
-        console.log('NOTIF: Permission denied by user');
+        showToast('Notifications blocked in browser settings', 'error');
         return false;
     }
-    
-    console.log('NOTIF: Requesting permission...');
     const result = await Notification.requestPermission();
-    console.log('NOTIF: Permission result:', result);
-    
     if (result === 'granted') {
         setNotifEnabled(true);
-        console.log('NOTIF: Enabled successfully');
         return true;
     }
-    
-    console.log('NOTIF: Permission not granted');
     return false;
 }
 
-// Show a local notification
-function showLocalNotification(title, body) {
-    if (!isNotifEnabled()) return;
-    try {
-        new Notification(title, { body, silent: false });
-    } catch (e) {}
-}
-
-// Initialize OneSignal (runs in background, not required for notifications)
-window.OneSignalDeferred = window.OneSignalDeferred || [];
-window.OneSignalDeferred.push(async function(OneSignal) {
-    try {
-        await OneSignal.init({
-            appId: ONESIGNAL_APP_ID,
-            allowLocalhostAsSecureOrigin: true,
-            notifyButton: { enable: false },
-            welcomeNotification: { disable: true }
-        });
-        console.log('ONESIGNAL: Initialized successfully');
-        
-        // Check subscription status
-        setTimeout(() => {
-            const optedIn = OneSignal.User.PushSubscription.optedIn;
-            console.log('ONESIGNAL: Subscribed:', optedIn);
-        }, 1000);
-    } catch (e) {
-        console.warn('ONESIGNAL: Init failed:', e.message);
-    }
-});
-
-// Try to login to OneSignal for push targeting (best effort)
-async function tryOneSignalLogin() {
-    try {
-        await window.OneSignalDeferred;
-        window.OneSignalDeferred.push(function(OneSignal) {
-            try {
-                const session = getCurrentUser();
-                if (session) {
-                    OneSignal.login(session.username);
-                    OneSignal.User.addTag('username', session.username);
-                }
-            } catch (e) {}
-        });
-    } catch (e) {}
-}
-
-// Send push notification via Supabase Edge Function
+// Send notification via Edge Function
 async function sendPushNotification(targetUsername, title, message) {
     const client = window.sbClient;
-    if (!client) {
-        console.warn('PUSH: No Supabase client available');
-        return;
-    }
-    console.log('PUSH: Sending to:', targetUsername, 'Title:', title);
-    
+    if (!client) return;
     try {
         const { data, error } = await client.functions.invoke('send-notification', {
             body: { targetUsername, title, message }
         });
-        
-        if (error) {
-            console.error('PUSH: Edge Function error:', error);
-        } else {
-            console.log('PUSH: Success:', data);
-        }
+        if (error) console.warn('PUSH: Error:', error);
+        else console.log('PUSH: Sent to:', targetUsername);
     } catch (e) {
-        console.error('PUSH: Exception:', e);
+        console.warn('PUSH: Failed:', e);
     }
 }
 

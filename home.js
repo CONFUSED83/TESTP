@@ -408,16 +408,15 @@
                 btn.disabled = true;
                 localStorage.setItem(popupKey, '1');
                 
-                const granted = await requestNotifPermission();
+                await requestNotifPermission();
                 
                 overlay.remove();
                 const label = document.getElementById('notifToggleLabel');
                 if (label) label.textContent = isNotifEnabled() ? 'Disable Notifications' : 'Enable Notifications';
-                if (granted) {
+                if (isNotifEnabled()) {
                     showToast('Notifications enabled!', 'success');
-                    tryOneSignalLogin();
                 } else {
-                    showToast('Could not enable notifications.', 'info');
+                    showToast('Could not enable.', 'info');
                 }
             });
 
