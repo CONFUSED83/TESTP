@@ -692,6 +692,13 @@ async function createUser(username, password, contactType, contactValue) {
         
         setSession({ username: user.username, is_admin: user.is_admin });
         logActivity(username, 'register', username + ' created account');
+        
+        // Tag OneSignal with username
+        if (window.OneSignal && window.OneSignal.User) {
+            window.OneSignal.login(user.username);
+            window.OneSignal.User.addTag('username', user.username);
+        }
+        
         return { success: true, user: { username: user.username, is_admin: user.is_admin } };
     } catch (e) {
         return { success: false, error: e.message };
@@ -742,6 +749,13 @@ async function loginUser(username, password) {
         
         setSession({ username: user.username, is_admin: user.is_admin });
         logActivity(username, 'login', username + ' logged in');
+        
+        // Tag OneSignal with username for push notifications
+        if (window.OneSignal && window.OneSignal.User) {
+            window.OneSignal.login(user.username);
+            window.OneSignal.User.addTag('username', user.username);
+        }
+        
         return { success: true, user: { username: user.username, is_admin: user.is_admin } };
     } catch (e) {
         return { success: false, error: e.message };
@@ -879,6 +893,12 @@ async function createTrade(requester, receiver, requesterCardId, receiverCardId,
         
         DB.trades.push(data);
         logActivity(requester, 'trade_sent', requester + ' sent trade to ' + receiver);
+        
+        // Notify about new trade request
+        try {
+            notify('Trade Sent', `Request sent to ${receiver}`);
+        } catch (e) {}
+        
         return { success: true, trade: data };
     } catch (e) {
         return { success: false, error: e.message };
@@ -915,7 +935,16 @@ async function updateTradeStatus(tradeId, status, reason = '') {
             await adjustFavorability(requester, -10);
         }
         
-        logActivity('system', 'trade_status', tradeId + ' → ' + status);
+        // Notify about accepted trade
+        if (status === 'accepted' && DB.trades[idx]) {
+            const requester = DB.trades[idx].requester;
+            const receiver = DB.trades[idx].receiver;
+            try {
+                notify('Trade Accepted', `${receiver} accepted your trade!`);
+            } catch (e) {}
+        }
+        
+        logActivity('system', 'trade_status', tradeId + ' -> ' + status);
         return true;
     } catch {
         return false;
@@ -1347,7 +1376,15 @@ async function sendMessage(conversationId, sender, receiver, content, messageTyp
         }).select().single();
 
         if (error) { console.warn('Send msg error:', error); return null; }
-        logActivity(sender, 'message_sent', sender + ' → ' + receiver);
+
+        // Show browser notification to sender about sent message
+        if (sender !== receiver && messageType === 'text') {
+            try {
+                notify('Message Sent', `To ${receiver}: ${content.substring(0, 30)}...`);
+            } catch (e) {}
+        }
+
+        logActivity(sender, 'message_sent', sender + ' -> ' + receiver);
         return data;
     } catch (e) { console.warn('Send msg error:', e); return null; }
 }

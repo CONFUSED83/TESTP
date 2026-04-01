@@ -271,58 +271,51 @@ window.showToast = function(message, type = 'info') {
     }, 3000);
 };
 
-// ============ ONESIGNAL PUSH NOTIFICATIONS ============
+// ============ PUSH NOTIFICATIONS ============
 
-const ONESIGNAL_APP_ID = '89f74a12-48fa-470e-be7a-2cd72d31f550';
+// Uses browser Notification API - works everywhere, no external setup needed
 
-// Initialize OneSignal when ready
-window.OneSignalDeferred = window.OneSignalDeferred || [];
-window.OneSignalDeferred.push(async function(OneSignal) {
-    try {
-        await OneSignal.init({
-            appId: ONESIGNAL_APP_ID,
-            allowLocalhostAsSecureOrigin: true,
-            notifyButton: { enable: false },
-            welcomeNotification: { disable: false },
-            serviceWorkerParam: { scope: '/' },
-            serviceWorkerPath: 'OneSignalSDKWorker.js'
-        });
-        console.log('OneSignal initialized successfully');
-        
-        OneSignal.on('subscriptionChange', function(isSubscribed) {
-            console.log('OneSignal subscription changed:', isSubscribed);
-            setOneSignalSubscribed(isSubscribed);
-        });
-    } catch (e) {
-        console.warn('OneSignal init warning:', e.message || e);
+// Check if notifications are enabled
+function isNotificationsEnabled() {
+    if (!('Notification' in window)) return false;
+    return Notification.permission === 'granted' && localStorage.getItem('cth_notif_enabled') !== 'false';
+}
+
+function setNotificationsEnabled(enabled) {
+    localStorage.setItem('cth_notif_enabled', enabled ? 'true' : 'false');
+}
+
+// Request browser notification permission
+async function requestNotifications() {
+    if (!('Notification' in window)) {
+        showToast('Notifications not supported in this browser', 'error');
+        return false;
     }
-});
-
-// Check if OneSignal is subscribed
-function isOneSignalSubscribed() {
-    return localStorage.getItem('cth_onesignal_subscribed') === 'true';
+    if (Notification.permission === 'granted') {
+        setNotificationsEnabled(true);
+        return true;
+    }
+    if (Notification.permission === 'denied') {
+        showToast('Notifications blocked. Enable in browser settings.', 'error');
+        return false;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+        setNotificationsEnabled(true);
+        return true;
+    }
+    return false;
 }
 
-function setOneSignalSubscribed(val) {
-    localStorage.setItem('cth_onesignal_subscribed', val ? 'true' : 'false');
-}
-
-// Show OneSignal slidedown prompt
-async function promptOneSignalSubscription() {
-    return new Promise((resolve) => {
-        window.OneSignalDeferred.push(async function(OneSignal) {
-            try {
-                await OneSignal.Slidedown.promptPush();
-                // Check if user accepted
-                setTimeout(() => {
-                    const isSubscribed = OneSignal.User.PushSubscription.optedIn;
-                    setOneSignalSubscribed(isSubscribed);
-                    resolve(isSubscribed);
-                }, 1000);
-            } catch (e) {
-                console.warn('OneSignal prompt failed:', e);
-                resolve(false);
-            }
+// Show a notification
+function notify(title, body) {
+    if (!isNotificationsEnabled()) return;
+    try {
+        new Notification(title, {
+            body: body,
+            icon: '',
+            badge: '',
+            silent: false
         });
-    });
+    } catch (e) {}
 }

@@ -119,18 +119,16 @@
         
         // Notification toggle
         const notifLabel = document.getElementById('notifToggleLabel');
-        if (notifLabel) notifLabel.textContent = isOneSignalSubscribed() ? 'Disable Notifications' : 'Enable Notifications';
+        if (notifLabel) notifLabel.textContent = isNotificationsEnabled() ? 'Disable Notifications' : 'Enable Notifications';
         document.getElementById('notifToggleBtn').addEventListener('click', async () => {
-            if (!isOneSignalSubscribed()) {
-                await promptOneSignalSubscription();
-                notifLabel.textContent = 'Disable Notifications';
-                showToast('Notifications enabled', 'success');
+            document.getElementById('profileDropdown').classList.remove('show');
+            if (!isNotificationsEnabled()) {
+                showNotificationPopup('cth_notif_popup_toggle');
             } else {
-                setOneSignalSubscribed(false);
+                setNotificationsEnabled(false);
                 notifLabel.textContent = 'Enable Notifications';
                 showToast('Notifications disabled', 'info');
             }
-            document.getElementById('profileDropdown').classList.remove('show');
         });
 
         window.doLogout = function() {
@@ -208,10 +206,10 @@
 
             // Show notification popup (once per user)
             const notifPopupKey = 'cth_notif_popup_' + user.username;
-            if (!localStorage.getItem(notifPopupKey) && !isOneSignalSubscribed()) {
+            if (!localStorage.getItem(notifPopupKey) && !isNotificationsEnabled()) {
                 setTimeout(() => {
                     showNotificationPopup(notifPopupKey);
-                }, 2500);
+                }, 1500);
             }
 
             document.getElementById('homeContent').querySelectorAll('[data-nav]').forEach(el => {
@@ -386,6 +384,23 @@
         }
 
         function showNotificationPopup(popupKey) {
+            const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+            const isHTTPS = location.protocol === 'https:';
+            const canNotify = 'Notification' in window;
+
+            let message = 'Get notified about new trade requests and messages.';
+            let enableBtnText = 'Enable Notifications';
+            let showWarning = false;
+
+            if (!canNotify) {
+                message = 'Your browser does not support notifications.';
+                enableBtnText = 'Not Supported';
+            } else if (isMobile && !isHTTPS) {
+                message = 'Push notifications require HTTPS on mobile. They work best on desktop browsers.';
+                enableBtnText = 'Try Anyway';
+                showWarning = true;
+            }
+
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay active';
             overlay.style.zIndex = '250';
@@ -395,9 +410,10 @@
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 </div>
                 <h3 style="font-family:Rajdhani,sans-serif;font-weight:700;font-size:1.25rem;margin-bottom:8px;">Stay Updated!</h3>
-                <p style="color:var(--text-dim);font-size:0.8125rem;line-height:1.5;margin-bottom:20px;">Get notified about new trade requests and messages, even when you're not on the app.</p>
+                <p style="color:var(--text-dim);font-size:0.8125rem;line-height:1.5;margin-bottom:20px;">${message}</p>
+                ${showWarning ? '<p style="color:var(--gold);font-size:0.75rem;margin-bottom:16px;">Mobile notifications may not work on HTTP connections.</p>' : ''}
                 <div style="display:flex;flex-direction:column;gap:8px;">
-                    <button class="btn btn-teal btn-full" id="notifAccept">Enable Notifications</button>
+                    <button class="btn btn-teal btn-full" id="notifAccept">${enableBtnText}</button>
                     <button class="btn btn-outline btn-full btn-sm" id="notifDecline">Maybe Later</button>
                 </div>
                 <p style="color:var(--text-dim);font-size:0.6875rem;margin-top:12px;">You can always toggle this in your profile settings.</p>
@@ -405,15 +421,31 @@
             document.body.appendChild(overlay);
 
             document.getElementById('notifAccept').addEventListener('click', async () => {
-                await promptOneSignalSubscription();
+                const btn = document.getElementById('notifAccept');
+                if (btn.textContent === 'Not Supported') {
+                    localStorage.setItem(popupKey, '1');
+                    overlay.remove();
+                    return;
+                }
+                btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;"></div> Enabling...';
+                btn.disabled = true;
+                
+                const granted = await requestNotifications();
+                if (granted) {
+                    showToast('Notifications enabled!', 'success');
+                } else {
+                    showToast('Could not enable. Check browser settings.', 'info');
+                }
+                
                 localStorage.setItem(popupKey, '1');
                 overlay.remove();
+                const label = document.getElementById('notifToggleLabel');
+                if (label) label.textContent = isNotificationsEnabled() ? 'Disable Notifications' : 'Enable Notifications';
             });
 
             document.getElementById('notifDecline').addEventListener('click', () => {
                 localStorage.setItem(popupKey, '1');
                 overlay.remove();
-                showToast('You can enable notifications anytime in profile settings.', 'info');
             });
 
             overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
