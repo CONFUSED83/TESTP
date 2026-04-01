@@ -119,10 +119,12 @@
         
         // Notification toggle
         const notifLabel = document.getElementById('notifToggleLabel');
-        if (notifLabel) notifLabel.textContent = isNotifEnabled() ? 'Disable Notifications' : 'Enable Notifications';
+        const browserPerm = ('Notification' in window) ? Notification.permission : 'denied';
+        const isEnabled = isNotifEnabled() || browserPerm === 'granted';
+        if (notifLabel) notifLabel.textContent = isEnabled ? 'Disable Notifications' : 'Enable Notifications';
         document.getElementById('notifToggleBtn').addEventListener('click', async () => {
             document.getElementById('profileDropdown').classList.remove('show');
-            if (!isNotifEnabled()) {
+            if (!isEnabled) {
                 showNotificationPopup('cth_notif_popup_toggle');
             } else {
                 setNotifEnabled(false);
@@ -206,7 +208,9 @@
 
             // Show notification popup (once per user)
             const notifPopupKey = 'cth_notif_popup_' + user.username;
-            if (!localStorage.getItem(notifPopupKey) && !isNotifEnabled()) {
+            const browserPerm = ('Notification' in window) ? Notification.permission : 'denied';
+            const alreadyEnabled = isNotifEnabled() || browserPerm === 'granted';
+            if (!localStorage.getItem(notifPopupKey) && !alreadyEnabled) {
                 setTimeout(() => {
                     showNotificationPopup(notifPopupKey);
                 }, 1500);
@@ -410,16 +414,16 @@
                 
                 await promptNotifSubscribe();
                 
-                setTimeout(() => {
-                    if (isNotifEnabled()) {
-                        showToast('Notifications enabled!', 'success');
-                    } else {
-                        showToast('Enable later in profile settings.', 'info');
-                    }
-                    overlay.remove();
-                    const label = document.getElementById('notifToggleLabel');
-                    if (label) label.textContent = isNotifEnabled() ? 'Disable Notifications' : 'Enable Notifications';
-                }, 1500);
+                overlay.remove();
+                const label = document.getElementById('notifToggleLabel');
+                const perm = ('Notification' in window) ? Notification.permission : 'denied';
+                const success = isNotifEnabled() || perm === 'granted';
+                if (label) label.textContent = success ? 'Disable Notifications' : 'Enable Notifications';
+                if (success) {
+                    showToast('Notifications enabled!', 'success');
+                } else {
+                    showToast('Could not enable. Try again later.', 'info');
+                }
             });
 
             document.getElementById('notifDecline').addEventListener('click', () => {

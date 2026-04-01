@@ -301,24 +301,38 @@ function setNotifEnabled(val) {
 
 async function promptNotifSubscribe() {
     try {
-        await window.OneSignalDeferred;
-        window.OneSignalDeferred.push(async function(OneSignal) {
-            await OneSignal.Slidedown.promptPush();
-            setTimeout(() => {
-                const subscribed = OneSignal.User.PushSubscription.optedIn;
-                setNotifEnabled(subscribed);
-                if (subscribed) {
-                    const session = getCurrentUser();
-                    if (session) {
-                        OneSignal.login(session.username);
-                        OneSignal.User.addTag('username', session.username);
-                    }
+        // Try browser Notification API directly
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                setNotifEnabled(true);
+                // Also try OneSignal in background
+                tryOneSignalLogin();
+                return;
+            }
+            if (Notification.permission !== 'denied') {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    setNotifEnabled(true);
+                    tryOneSignalLogin();
                 }
-            }, 500);
-        });
+            }
+        }
     } catch (e) {
         console.warn('Notif subscribe failed:', e);
     }
+}
+
+async function tryOneSignalLogin() {
+    try {
+        await window.OneSignalDeferred;
+        window.OneSignalDeferred.push(function(OneSignal) {
+            const session = getCurrentUser();
+            if (session) {
+                OneSignal.login(session.username);
+                OneSignal.User.addTag('username', session.username);
+            }
+        });
+    } catch (e) {}
 }
 
 // Send push notification via Supabase Edge Function (keeps API key secure)
