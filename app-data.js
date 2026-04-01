@@ -1119,6 +1119,9 @@ async function findMatches(username, wantedCardId) {
             return card && card.type === wantedCard.type && mc.quantity >= 2;
         }).map(mc => mc.card_id);
         
+        // Cards I already own (to exclude from matches)
+        const myOwnedCardIds = new Set(myCardsList.map(mc => mc.card_id));
+        
         // BULK QUERY 3: Get favorability for all owners
         const ownerUsernames = [...new Set(owners.map(o => o.username))];
         const { data: ownerUsers } = await sb.from('users')
@@ -1138,7 +1141,8 @@ async function findMatches(username, wantedCardId) {
             seenUsers.add(owner.username);
             
             const ownerCards = ownerCardsMap[owner.username] || new Set();
-            const mutualNeeds = myExtraSameType.filter(cardId => !ownerCards.has(cardId));
+            // Only suggest cards I DON'T already own
+            const mutualNeeds = myExtraSameType.filter(cardId => !ownerCards.has(cardId) && !myOwnedCardIds.has(cardId));
             const favorability = favorabilityMap[owner.username] || 100;
             
             matches.push({

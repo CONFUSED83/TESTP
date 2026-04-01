@@ -541,6 +541,9 @@
 
                 for (const wanted of missingCards.slice(0, 15)) {
                     if (dismissed.includes(wanted.card_id)) continue;
+                    // Double-check: make sure I don't already have this card
+                    if (myCards.find(uc => uc.card_id === wanted.card_id)) continue;
+                    
                     const matches = await findMatches(user.username, wanted.card_id);
                     if (matches.length > 0) {
                         const topMatch = matches[0];

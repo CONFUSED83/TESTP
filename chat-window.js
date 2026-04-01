@@ -125,10 +125,12 @@
             if (msg.trade_id) {
                 const trade = await getTradeById(msg.trade_id);
                 if (trade) {
-                    const reqCardId = trade.requester === user.username ? trade.requester_card_id : trade.receiver_card_id;
-                    const recCardId = trade.requester === user.username ? trade.receiver_card_id : trade.requester_card_id;
-                    giveCard = getCardById(reqCardId);
-                    getCard = getCardById(recCardId);
+                    const isRequester = trade.requester === user.username;
+                    // For the message sender's perspective:
+                    const giveCardId = isRequester ? trade.requester_card_id : trade.receiver_card_id;
+                    const getCardId = isRequester ? trade.receiver_card_id : trade.requester_card_id;
+                    giveCard = getCardById(giveCardId);
+                    getCard = getCardById(getCardId);
                     tradeStatus = trade.status;
                 }
             }
@@ -149,7 +151,7 @@
                 ${giveCard && getCard ? `
                 <div class="trade-swap-mini">
                     <div style="text-align:center;">
-                        <div class="trade-label trade-label-give">${isMine ? 'YOU GIVE' : 'THEY GIVE'}</div>
+                        <div class="trade-label trade-label-give">YOU GIVE</div>
                         <div class="trade-mini-card card-${giveCard.type.toLowerCase()}">
                             ${giveImg ? '<img src="' + giveImg + '" onerror="this.style.display=\'none\'">' : ''}
                         </div>
@@ -158,7 +160,7 @@
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>
                     </div>
                     <div style="text-align:center;">
-                        <div class="trade-label trade-label-get">${isMine ? 'YOU GET' : 'THEY GET'}</div>
+                        <div class="trade-label trade-label-get">YOU GET</div>
                         <div class="trade-mini-card card-${getCard.type.toLowerCase()}">
                             ${getImg ? '<img src="' + getImg + '" onerror="this.style.display=\'none\'">' : ''}
                         </div>
