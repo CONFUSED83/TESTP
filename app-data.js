@@ -694,10 +694,13 @@ async function createUser(username, password, contactType, contactValue) {
         logActivity(username, 'register', username + ' created account');
         
         // Tag OneSignal with username
-        if (window.OneSignal && window.OneSignal.User) {
-            window.OneSignal.login(user.username);
-            window.OneSignal.User.addTag('username', user.username);
-        }
+        try {
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            window.OneSignalDeferred.push(async function(OneSignal) {
+                OneSignal.login(user.username);
+                OneSignal.User.addTag('username', user.username);
+            });
+        } catch (e) {}
         
         return { success: true, user: { username: user.username, is_admin: user.is_admin } };
     } catch (e) {
@@ -751,10 +754,13 @@ async function loginUser(username, password) {
         logActivity(username, 'login', username + ' logged in');
         
         // Tag OneSignal with username for push notifications
-        if (window.OneSignal && window.OneSignal.User) {
-            window.OneSignal.login(user.username);
-            window.OneSignal.User.addTag('username', user.username);
-        }
+        try {
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            window.OneSignalDeferred.push(async function(OneSignal) {
+                OneSignal.login(user.username);
+                OneSignal.User.addTag('username', user.username);
+            });
+        } catch (e) {}
         
         return { success: true, user: { username: user.username, is_admin: user.is_admin } };
     } catch (e) {
@@ -894,9 +900,9 @@ async function createTrade(requester, receiver, requesterCardId, receiverCardId,
         DB.trades.push(data);
         logActivity(requester, 'trade_sent', requester + ' sent trade to ' + receiver);
         
-        // Notify about new trade request
+        // Send push notification to receiver
         try {
-            notify('Trade Sent', `Request sent to ${receiver}`);
+            sendPushNotification(receiver, 'New Trade Request', `${requester} wants to trade with you!`);
         } catch (e) {}
         
         return { success: true, trade: data };
@@ -935,12 +941,12 @@ async function updateTradeStatus(tradeId, status, reason = '') {
             await adjustFavorability(requester, -10);
         }
         
-        // Notify about accepted trade
+        // Notify requester when trade is accepted
         if (status === 'accepted' && DB.trades[idx]) {
             const requester = DB.trades[idx].requester;
             const receiver = DB.trades[idx].receiver;
             try {
-                notify('Trade Accepted', `${receiver} accepted your trade!`);
+                sendPushNotification(requester, 'Trade Accepted!', `${receiver} accepted your trade!`);
             } catch (e) {}
         }
         
@@ -1377,10 +1383,10 @@ async function sendMessage(conversationId, sender, receiver, content, messageTyp
 
         if (error) { console.warn('Send msg error:', error); return null; }
 
-        // Show browser notification to sender about sent message
+        // Send push notification to receiver
         if (sender !== receiver && messageType === 'text') {
             try {
-                notify('Message Sent', `To ${receiver}: ${content.substring(0, 30)}...`);
+                sendPushNotification(receiver, 'New Message', `${sender}: ${content.substring(0, 50)}`);
             } catch (e) {}
         }
 

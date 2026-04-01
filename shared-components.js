@@ -271,14 +271,79 @@ window.showToast = function(message, type = 'info') {
     }, 3000);
 };
 
-// ============ PUSH NOTIFICATIONS ============
+// ============ NOTIFICATIONS ============
+// Uses OneSignal ONLY for push notifications (works when browser is closed)
 
-// Uses browser Notification API - works everywhere, no external setup needed
+const ONESIGNAL_APP_ID = '89f74a12-48fa-470e-be7a-2cd72d31f550';
+const ONESIGNAL_REST_KEY = 'os_v2_app_rh3uuesi7jdq5pt2ftls2mpvkaqjmxcz666u3vnsyh3my5w5uozeqpghxzvnkizlkq4wnx6zprar6d33u6aewft3ayob5zpgfzvy4ga';
 
-// Check if notifications are enabled
-function isNotificationsEnabled() {
-    if (!('Notification' in window)) return false;
-    return Notification.permission === 'granted' && localStorage.getItem('cth_notif_enabled') !== 'false';
+// Initialize OneSignal
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+window.OneSignalDeferred.push(async function(OneSignal) {
+    try {
+        await OneSignal.init({
+            appId: ONESIGNAL_APP_ID,
+            allowLocalhostAsSecureOrigin: true,
+            notifyButton: { enable: false },
+            welcomeNotification: { disable: true }
+        });
+        console.log('OneSignal ready');
+    } catch (e) {
+        console.warn('OneSignal init:', e.message);
+    }
+});
+
+// Check if user is subscribed to OneSignal push
+function isNotifEnabled() {
+    return localStorage.getItem('cth_notif_on') === 'true';
+}
+function setNotifEnabled(val) {
+    localStorage.setItem('cth_notif_on', val ? 'true' : 'false');
+}
+
+// Prompt user to subscribe to OneSignal push
+async function promptNotifSubscribe() {
+    try {
+        await window.OneSignalDeferred;
+        window.OneSignalDeferred.push(async function(OneSignal) {
+            await OneSignal.Slidedown.promptPush();
+            setTimeout(() => {
+                const subscribed = OneSignal.User.PushSubscription.optedIn;
+                setNotifEnabled(subscribed);
+                if (subscribed) {
+                    const session = getCurrentUser();
+                    if (session) {
+                        OneSignal.login(session.username);
+                        OneSignal.User.addTag('username', session.username);
+                    }
+                }
+            }, 500);
+        });
+    } catch (e) {
+        console.warn('Notif subscribe failed:', e);
+    }
+}
+
+// Send push notification via OneSignal REST API
+async function sendPushNotification(targetUsername, title, message) {
+    try {
+        await fetch('https://onesignal.com/api/v1/notifications', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + ONESIGNAL_REST_KEY
+            },
+            body: JSON.stringify({
+                app_id: ONESIGNAL_APP_ID,
+                include_external_user_ids: [targetUsername],
+                headings: { en: title },
+                contents: { en: message }
+            })
+        });
+        console.log('Push sent to:', targetUsername);
+    } catch (e) {
+        console.warn('Push failed:', e);
+    }
 }
 
 function setNotificationsEnabled(enabled) {
