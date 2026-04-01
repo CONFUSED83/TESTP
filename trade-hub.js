@@ -104,7 +104,26 @@
             document.getElementById('content').querySelectorAll('[data-trade-match]').forEach(el => {
                 el.addEventListener('click', () => {
                     const parts = el.dataset.tradeMatch.split('|');
-                    navigateTo('trade-detail', parts[0], parts[1], el.querySelector('.match-name')?.textContent || '');
+                    const targetUser = parts[1];
+                    // Find what card to offer in exchange
+                    const myGiveCard = mode === 'offer' ? selectedCard : null;
+                    const theirCard = mode === 'find' ? parts[0] : null;
+                    
+                    if (mode === 'find') {
+                        // Find mode: I want theirCard, they need something from me
+                        const match = matches.find(m => m.username === targetUser);
+                        const myOffer = match && match.they_need && match.they_need[0];
+                        if (myOffer) {
+                            navigateTo('trade-detail', myOffer, theirCard, targetUser);
+                        }
+                    } else {
+                        // Offer mode: I offer myGiveCard, they have something I might want
+                        const match = offerMatches.find(m => m.username === targetUser);
+                        const theirOffer = match && match.they_have && match.they_have[0];
+                        if (theirOffer) {
+                            navigateTo('trade-detail', myGiveCard, theirOffer, targetUser);
+                        }
+                    }
                 });
             });
 

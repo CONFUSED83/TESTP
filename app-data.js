@@ -903,8 +903,11 @@ async function createTrade(requester, receiver, requesterCardId, receiverCardId,
         
         // Send push notification to receiver
         try {
-            sendPushNotification(receiver, 'New Trade Request', `${requester} wants to trade with you!`);
-        } catch (e) {}
+            console.log('TRADE: Sending notification to:', receiver);
+            await sendPushNotification(receiver, 'New Trade Request', `${requester} wants to trade with you!`);
+        } catch (e) {
+            console.error('TRADE: Notification failed:', e);
+        }
         
         return { success: true, trade: data };
     } catch (e) {
@@ -1113,10 +1116,10 @@ async function findMatches(username, wantedCardId) {
             ownerCardsMap[uc.username].add(uc.card_id);
         }
         
-        // My extra cards of the same type
+        // My extra cards of the same type (EXCLUDING the wanted card itself)
         const myExtraSameType = myCardsList.filter(mc => {
             const card = getCardById(mc.card_id);
-            return card && card.type === wantedCard.type && mc.quantity >= 2;
+            return card && card.type === wantedCard.type && mc.quantity >= 2 && mc.card_id !== wantedCardId;
         }).map(mc => mc.card_id);
         
         // Cards I already own (to exclude from matches)
@@ -1386,13 +1389,16 @@ async function sendMessage(conversationId, sender, receiver, content, messageTyp
             trade_id: tradeId
         }).select().single();
 
-        if (error) { console.warn('Send msg error:', error); return null; }
+        if (error) { console.warn('MSG: Send error:', error); return null; }
 
         // Send push notification to receiver
         if (sender !== receiver && messageType === 'text') {
+            console.log('MSG: Sending push notification to:', receiver);
             try {
-                sendPushNotification(receiver, 'New Message', `${sender}: ${content.substring(0, 50)}`);
-            } catch (e) {}
+                await sendPushNotification(receiver, 'New Message', `${sender}: ${content.substring(0, 50)}`);
+            } catch (e) {
+                console.error('MSG: Push failed:', e);
+            }
         }
 
         logActivity(sender, 'message_sent', sender + ' -> ' + receiver);

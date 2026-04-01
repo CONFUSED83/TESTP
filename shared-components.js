@@ -289,21 +289,36 @@ function setNotifEnabled(val) {
 async function requestNotifPermission() {
     if (!('Notification' in window)) {
         showToast('Notifications not supported in this browser', 'error');
+        console.log('NOTIF: Browser does not support notifications');
         return false;
     }
+    
+    console.log('NOTIF: Current permission:', Notification.permission);
+    console.log('NOTIF: Stored state:', localStorage.getItem('cth_notif_on'));
+    
     if (Notification.permission === 'granted') {
         setNotifEnabled(true);
+        console.log('NOTIF: Already granted, enabling');
         return true;
     }
+    
     if (Notification.permission === 'denied') {
         showToast('Notifications blocked. Check browser site settings.', 'error');
+        console.log('NOTIF: Permission denied by user');
         return false;
     }
+    
+    console.log('NOTIF: Requesting permission...');
     const result = await Notification.requestPermission();
+    console.log('NOTIF: Permission result:', result);
+    
     if (result === 'granted') {
         setNotifEnabled(true);
+        console.log('NOTIF: Enabled successfully');
         return true;
     }
+    
+    console.log('NOTIF: Permission not granted');
     return false;
 }
 
@@ -325,9 +340,15 @@ window.OneSignalDeferred.push(async function(OneSignal) {
             notifyButton: { enable: false },
             welcomeNotification: { disable: true }
         });
-        console.log('OneSignal ready');
+        console.log('ONESIGNAL: Initialized successfully');
+        
+        // Check subscription status
+        setTimeout(() => {
+            const optedIn = OneSignal.User.PushSubscription.optedIn;
+            console.log('ONESIGNAL: Subscribed:', optedIn);
+        }, 1000);
     } catch (e) {
-        console.warn('OneSignal init:', e.message);
+        console.warn('ONESIGNAL: Init failed:', e.message);
     }
 });
 
@@ -349,19 +370,25 @@ async function tryOneSignalLogin() {
 
 // Send push notification via Supabase Edge Function
 async function sendPushNotification(targetUsername, title, message) {
-    const client = window.sbClient || (window.supabase ? window.supabase.createClient('https://jbjsfwkmnjzanbzjkbuv.supabase.co', 'dummy') : null);
+    const client = window.sbClient;
     if (!client) {
-        console.warn('No client for push');
+        console.warn('PUSH: No Supabase client available');
         return;
     }
+    console.log('PUSH: Sending to:', targetUsername, 'Title:', title);
+    
     try {
         const { data, error } = await client.functions.invoke('send-notification', {
             body: { targetUsername, title, message }
         });
-        if (error) console.warn('Push failed:', error);
-        else console.log('Push sent to:', targetUsername);
+        
+        if (error) {
+            console.error('PUSH: Edge Function error:', error);
+        } else {
+            console.log('PUSH: Success:', data);
+        }
     } catch (e) {
-        console.warn('Push error:', e);
+        console.error('PUSH: Exception:', e);
     }
 }
 
