@@ -279,14 +279,16 @@ const ONESIGNAL_APP_ID = '89f74a12-48fa-470e-be7a-2cd72d31f550';
 window.OneSignalDeferred = window.OneSignalDeferred || [];
 window.OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
-        appId: ONESIGNAL_APP_ID
+        appId: ONESIGNAL_APP_ID,
+        serviceWorkerParam: { scope: '/TESTP/' },
+        serviceWorkerPath: '/TESTP/OneSignalSDKWorker.js'
     });
     console.log('ONESIGNAL: Ready');
 
     // Tag user with username when subscribed
-    OneSignal.on('subscriptionChange', function(isSubscribed) {
-        console.log('ONESIGNAL: Subscription:', isSubscribed);
-        if (isSubscribed) {
+    OneSignal.User.PushSubscription.addEventListener('change', function(event) {
+        console.log('ONESIGNAL: Subscription changed:', event.current.optedIn);
+        if (event.current.optedIn) {
             const session = getCurrentUser();
             if (session) {
                 OneSignal.User.addTag('username', session.username);
